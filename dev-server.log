@@ -1,0 +1,28 @@
+▲ Next.js 16.2.7 (Turbopack)
+- Local:         http://localhost:3000
+- Network:       http://192.168.11.16:3000
+✓ Ready in 928ms
+
+○ Compiling / ...
+ GET / 200 in 5.1s (next.js: 4.7s, application-code: 391ms)
+▲ Next.js 16.2.7 (Turbopack)
+- Local:         http://localhost:3000
+- Network:       http://192.168.11.16:3000
+- Environments: .env.local
+✓ Ready in 1383ms
+
+ GET / 200 in 3.8s (next.js: 3.4s, application-code: 393ms)
+▲ Next.js 16.2.7 (Turbopack)
+- Local:         http://localhost:3000
+- Network:       http://192.168.11.16:3000
+- Environments: .env.local
+✓ Ready in 1548ms
+
+ GET /api/generate-plan 200 in 496ms (next.js: 395ms, application-code: 101ms)
+▲ Next.js 16.2.7 (Turbopack)
+- Local:         http://localhost:3000
+- Network:       http://192.168.11.16:3000
+- Environments: .env.local
+✓ Ready in 1746ms
+
+ GET /api/generate-plan 200 in 447ms (next.js: 400ms, application-code: 47ms)

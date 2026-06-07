@@ -1,0 +1,72 @@
+@import "tailwindcss";
+
+:root {
+  color-scheme: light;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family:
+    Arial,
+    "Hiragino Kaku Gothic ProN",
+    "Yu Gothic",
+    "Meiryo",
+    sans-serif;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+.prose {
+  color: #0f172a;
+}
+
+.prose h1,
+.prose h2,
+.prose h3 {
+  color: #0f172a;
+  font-weight: 700;
+}
+
+.prose h1 {
+  font-size: 1.75rem;
+  line-height: 2.25rem;
+  margin: 0 0 1rem;
+}
+
+.prose h2 {
+  border-bottom: 1px solid #cbd5e1;
+  font-size: 1.25rem;
+  line-height: 1.75rem;
+  margin: 1.75rem 0 0.75rem;
+  padding-bottom: 0.35rem;
+}
+
+.prose h3 {
+  font-size: 1.05rem;
+  margin: 1.25rem 0 0.5rem;
+}
+
+.prose p,
+.prose li {
+  line-height: 1.8;
+}
+
+.prose ul,
+.prose ol {
+  padding-left: 1.5rem;
+}
+
+.prose code {
+  background: #e2e8f0;
+  border-radius: 0.25rem;
+  padding: 0.1rem 0.25rem;
+}
