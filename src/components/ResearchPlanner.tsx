@@ -20,6 +20,12 @@ type RuntimeStatus = {
 };
 type StructuredFieldState = Partial<Record<keyof ResearchPlanInput, string[]>>;
 type SupplementalNoteState = Partial<Record<keyof ResearchPlanInput, string>>;
+type ContextualSuggestionState = Partial<
+  Record<keyof ResearchPlanInput, SuggestionGroup[]>
+>;
+type SuggestionStatusState = Partial<
+  Record<keyof ResearchPlanInput, { isLoading: boolean; warning?: string }>
+>;
 
 const guardrailText =
   "この画面は、ご相談内容を整理し、心sensorの使い方を一緒に考えるためのものです。心sensorは感情を決めつけるものではなく、表情の変化から反応の傾向を見やすくするために使います。診断や評価の断定には使いません。";
@@ -62,6 +68,10 @@ export function ResearchPlanner() {
   const [runtimeStatus, setRuntimeStatus] = useState<RuntimeStatus | null>(
     null,
   );
+  const [contextualSuggestions, setContextualSuggestions] =
+    useState<ContextualSuggestionState>({});
+  const [suggestionStatuses, setSuggestionStatuses] =
+    useState<SuggestionStatusState>({});
 
   const missingFields = useMemo(() => validateResearchPlanInput(form), [form]);
   const canConfirm = missingFields.length === 0;
@@ -89,6 +99,74 @@ export function ResearchPlanner() {
       isMounted = false;
     };
   }, []);
+
+  useEffect(() => {
+    if (step !== "form") return;
+
+    const field = fieldDefinitions[currentQuestionIndex];
+    if (!field || field.name === "research_theme") return;
+    if (!form.research_theme.trim()) return;
+
+    const controller = new AbortController();
+    const fieldName = field.name;
+    const contextForm = { ...form, [fieldName]: "" };
+
+    setSuggestionStatuses((current) => ({
+      ...current,
+      [fieldName]: { isLoading: true },
+    }));
+
+    async function loadContextualSuggestions() {
+      try {
+        const response = await fetch("/api/suggest-options", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ fieldName, form: contextForm }),
+          signal: controller.signal,
+        });
+        const data = (await response.json()) as {
+          suggestionGroups?: SuggestionGroup[];
+          warning?: string;
+        };
+
+        if (controller.signal.aborted) return;
+
+        if (response.ok && data.suggestionGroups?.length) {
+          setContextualSuggestions((current) => ({
+            ...current,
+            [fieldName]: data.suggestionGroups,
+          }));
+        }
+
+        setSuggestionStatuses((current) => ({
+          ...current,
+          [fieldName]: {
+            isLoading: false,
+            warning: data.warning,
+          },
+        }));
+      } catch (suggestionError) {
+        if (controller.signal.aborted) return;
+
+        setSuggestionStatuses((current) => ({
+          ...current,
+          [fieldName]: {
+            isLoading: false,
+            warning:
+              suggestionError instanceof Error
+                ? suggestionError.message
+                : "候補を作成できませんでした。",
+          },
+        }));
+      }
+    }
+
+    loadContextualSuggestions();
+
+    return () => {
+      controller.abort();
+    };
+  }, [currentQuestionIndex, form, step]);
 
   function updateField(name: keyof ResearchPlanInput, value: string) {
     setForm((current) => ({ ...current, [name]: value }));
@@ -261,6 +339,8 @@ export function ResearchPlanner() {
                 form={form}
                 missingFields={missingFields}
                 selectedOptions={selectedOptions}
+                contextualSuggestions={contextualSuggestions}
+                suggestionStatuses={suggestionStatuses}
                 supplementalNotes={supplementalNotes}
                 onChange={updateField}
                 onConfirm={goToConfirm}
@@ -401,6 +481,8 @@ function FormScreen({
   form,
   missingFields,
   selectedOptions,
+  contextualSuggestions,
+  suggestionStatuses,
   supplementalNotes,
   onChange,
   onConfirm,
@@ -416,6 +498,8 @@ function FormScreen({
   form: ResearchPlanInput;
   missingFields: Array<keyof ResearchPlanInput>;
   selectedOptions: StructuredFieldState;
+  contextualSuggestions: ContextualSuggestionState;
+  suggestionStatuses: SuggestionStatusState;
   supplementalNotes: SupplementalNoteState;
   onChange: (name: keyof ResearchPlanInput, value: string) => void;
   onConfirm: () => void;
@@ -432,6 +516,17 @@ function FormScreen({
   const isLastQuestion = currentQuestionIndex === fieldDefinitions.length - 1;
   const currentAnswer = form[field.name] || "";
   const currentQuestionAnswered = Boolean(currentAnswer.trim());
+  const generatedSuggestionGroups = contextualSuggestions[field.name] || [];
+  const fallbackSuggestionGroups = getInputSuggestionGroups(
+    form.research_theme,
+    field.name,
+    form,
+  );
+  const suggestionGroups =
+    generatedSuggestionGroups.length > 0
+      ? generatedSuggestionGroups
+      : fallbackSuggestionGroups;
+  const suggestionStatus = suggestionStatuses[field.name];
   const progress = Math.round(
     ((currentQuestionIndex + 1) / fieldDefinitions.length) * 100,
   );
@@ -483,11 +578,8 @@ function FormScreen({
         <FormField
           definition={field}
           missing={missingFields.includes(field.name)}
-          suggestionGroups={getInputSuggestionGroups(
-            form.research_theme,
-            field.name,
-            form,
-          )}
+          suggestionGroups={suggestionGroups}
+          suggestionStatus={suggestionStatus}
           selectedValues={selectedOptions[field.name] || []}
           supplementalNote={supplementalNotes[field.name] || ""}
           value={currentAnswer}
@@ -583,6 +675,7 @@ function FormField({
   onToggleOption,
   selectedValues,
   suggestionGroups,
+  suggestionStatus,
   supplementalNote,
   value,
 }: {
@@ -593,6 +686,7 @@ function FormField({
   onToggleOption: (option: string) => void;
   selectedValues: string[];
   suggestionGroups: SuggestionGroup[];
+  suggestionStatus?: { isLoading: boolean; warning?: string };
   supplementalNote: string;
   value: string;
 }) {
@@ -635,6 +729,16 @@ function FormField({
           <p className="text-xs font-semibold text-slate-500">
             候補から選んでください（複数選択できます）
           </p>
+          {suggestionStatus?.isLoading && (
+            <p className="mt-2 text-xs leading-5 text-emerald-800">
+              回答済みの内容をふまえて、候補を調整しています。
+            </p>
+          )}
+          {!suggestionStatus?.isLoading && suggestionStatus?.warning && (
+            <p className="mt-2 text-xs leading-5 text-amber-800">
+              文脈別候補を作れなかったため、基本候補を表示しています。
+            </p>
+          )}
           {groupedOptions.length > 0 ? (
             <div className="mt-3 space-y-4">
               {groupedOptions.map((group) => (
